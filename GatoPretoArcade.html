@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>GatoPretoStore Arcade</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
+    :root{
+      --bg1:#0d1020; --bg2:#1f1731; --bg3:#32203d;
+      --panel:#181428; --panel2:#231c38; --line:#4c3f68;
+      --wood:#7b4e27; --wood2:#a06a3a; --wood3:#d39a68;
+      --cream:#fff1d6; --muted:#bcb1d1; --gold:#ffd34f; --gold2:#f6a625;
+      --mint:#6cf0d6; --mint2:#2bc1a8; --pink:#ff9fc0; --red:#f47373;
+      --green:#91f18d; --purple:#a28cff; --black:#151515;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;height:100%;overflow:hidden;background:radial-gradient(circle at top,#3c2753 0%,#161626 40%,#0b0e17 100%);color:var(--cream);font-family:'VT323',monospace}
+    button{font:inherit}
+    .screen{position:fixed; inset:0; display:none}
+    .screen.active{display:block}
+
+    /* STORE SCREEN */
+    #storeScreen{background:
+      radial-gradient(circle at 50% -20%, rgba(255,255,255,.12), transparent 35%),
+      linear-gradient(180deg, rgba(95,61,141,.3), transparent 30%),
+      linear-gradient(180deg,#221839 0%, #1a1730 35%, #131524 100%);
+    }
+    .uiTop{position:absolute; left:0; right:0; top:0; z-index:10; padding:18px 22px; display:flex; justify-content:space-between; align-items:flex-start; gap:18px; pointer-events:none}
+    .titleBox,.wallet,.playCorner,.dialog,.shopPanel,.hintBubble{pointer-events:auto}
+    .titleBox{background:rgba(17,13,29,.88); border:3px solid var(--line); box-shadow:0 8px 0 rgba(0,0,0,.26); padding:16px 18px; border-radius:14px; max-width:520px}
+    .titleBox h1{margin:0 0 8px; font:16px 'Press Start 2P', monospace; line-height:1.45; color:#fff6dd}
+    .titleBox p{margin:0; color:var(--muted); font-size:17px; line-height:1.25}
+    .wallet{background:rgba(30,18,26,.92); border:3px solid #7b5629; padding:14px 18px; border-radius:14px; min-width:170px; text-align:right; box-shadow:0 8px 0 rgba(0,0,0,.22)}
+    .wallet .label{font:10px 'Press Start 2P', monospace; color:#ffe3a0}
+    .wallet .value{font-size:34px; color:var(--gold); line-height:1; margin-top:8px}
+    .wallet .value small{font-size:22px}
+
+    #storeCanvas{position:absolute; inset:0; width:100%; height:100%; image-rendering:pixelated; display:block}
+
+    .playCorner{position:absolute; right:20px; bottom:20px; z-index:15; display:flex; flex-direction:column; align-items:flex-end; gap:10px}
+    .pixelBtn{
+      appearance:none; border:0; cursor:pointer; color:#24150e; background:linear-gradient(180deg,#ffe98f,#ffc84c);
+      border:3px solid #6d4717; box-shadow:0 8px 0 #6d4717; border-radius:14px; padding:14px 18px; min-width:200px;
+      font:13px 'Press Start 2P', monospace; line-height:1.25; transition:transform .08s ease, box-shadow .08s ease, filter .15s ease;
+    }
+    .pixelBtn:hover{filter:brightness(1.06)}
+    .pixelBtn:active{transform:translateY(4px); box-shadow:0 4px 0 #6d4717}
+    .pixelBtn.secondary{background:linear-gradient(180deg,#bbf8ed,#65e0cc); color:#103228; border-color:#19574e; box-shadow:0 8px 0 #19574e}
+    .pixelBtn.dark{background:linear-gradient(180deg,#d5caf3,#ae9bff); color:#211635; border-color:#473179; box-shadow:0 8px 0 #473179}
+    .playCorner .mini{font-size:11px; min-width:200px}
+
+    .dialog{position:absolute; left:24px; bottom:24px; z-index:15; width:min(520px,calc(100% - 48px)); background:#fff3d9; color:#2d2134; border:4px solid #7b5c55; border-radius:20px; padding:18px 18px 16px; box-shadow:0 10px 0 rgba(0,0,0,.24)}
+    .dialog .tag{font:10px 'Press Start 2P', monospace; color:#91526e; margin-bottom:10px}
+    .dialogText{font-size:30px; line-height:1.08}
+    .dialogText .price{color:#0c835f; font:10px 'Press Start 2P', monospace}
+
+    .shopPanel{position:absolute; top:130px; right:22px; z-index:12; width:min(390px, calc(100% - 44px)); max-height:calc(100vh - 300px); overflow:auto; background:rgba(18,15,31,.93); border:3px solid var(--line); border-radius:18px; box-shadow:0 10px 0 rgba(0,0,0,.2); padding:16px}
+    .shopPanel h2{margin:0 0 14px; font:12px 'Press Start 2P', monospace; line-height:1.4; color:#fff0c6}
+    .shopItems{display:grid; gap:12px}
+    .item{background:linear-gradient(180deg,rgba(58,45,84,.72),rgba(31,25,48,.95)); border:2px solid #5d4b85; border-radius:14px; padding:12px}
+    .itemRow{display:flex; align-items:start; justify-content:space-between; gap:10px}
+    .itemTitle{font:10px 'Press Start 2P', monospace; color:#fff3dc; line-height:1.35}
+    .itemDesc{margin-top:8px; color:var(--muted); font-size:18px; line-height:1.05}
+    .itemMeta{margin-top:8px; display:flex; justify-content:space-between; align-items:center; gap:8px}
+    .pill{background:#2b2341; border:2px solid #645284; color:#d9cbff; font:9px 'Press Start 2P', monospace; padding:6px 8px; border-radius:999px}
+    .buyBtn{cursor:pointer; border:0; background:linear-gradient(180deg,#9ffb9b,#57d35a); color:#163019; border:2px solid #2f6b32; box-shadow:0 4px 0 #2f6b32; border-radius:10px; padding:8px 10px; font:9px 'Press Start 2P', monospace}
+    .buyBtn:active{transform:translateY(2px); box-shadow:0 2px 0 #2f6b32}
+    .buyBtn:disabled{opacity:.5; cursor:not-allowed}
+    .hintBubble{position:absolute; left:53%; top:51%; transform:translate(-50%,-50%); z-index:14; background:rgba(255,240,200,.97); color:#342338; border:4px solid #7a5f59; border-radius:14px; font:10px 'Press Start 2P', monospace; padding:12px 14px; box-shadow:0 8px 0 rgba(0,0,0,.18); display:none; text-align:center; max-width:270px; line-height:1.4}
+    .hintBubble.show{display:block}
+
+    /* GAME SCREEN */
+    #gameScreen{background:radial-gradient(circle at top,#2a2b4e 0%, #15182b 45%, #0b0f19 100%); overflow:auto}
+    .gameWrap{min-height:100%; padding:18px; display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:18px}
+    .panel{background:rgba(18,20,33,.94); border:3px solid #485374; border-radius:16px; box-shadow:0 10px 0 rgba(0,0,0,.18)}
+    .playPanel{padding:14px}
+    .hud{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:12px}
+    .box{padding:10px 12px; border-radius:12px; background:#101321; border:2px solid #333c58}
+    .box .k{font:8px 'Press Start 2P', monospace; color:#a7b7e4; line-height:1.5}
+    .box .v{font-size:28px; line-height:1; margin-top:6px}
+    #gameCanvas{display:block; width:100%; max-width:100%; aspect-ratio:24/18; background:#14231d; border:3px solid #486855; border-radius:12px; image-rendering:pixelated}
+    .controls{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px}
+    .sidePanel{padding:16px}
+    .sidePanel h2{margin:0 0 14px; font:12px 'Press Start 2P', monospace; line-height:1.5}
+    .sidePanel p{margin:0 0 10px; font-size:18px; color:var(--muted); line-height:1.15}
+    .list{display:grid; gap:10px; margin-top:14px}
+    .row{display:flex; justify-content:space-between; gap:10px; padding-bottom:8px; border-bottom:1px solid #2c3551; font-size:18px}
+    .row b{color:#fff1d6}
+    .pad{margin-top:16px; display:grid; grid-template-columns:repeat(3,56px); gap:6px; justify-content:center}
+    .pad button{height:56px; border-radius:12px; border:2px solid #5b6894; background:#242c46; color:#fff; font-size:24px}
+    .pad button:active{background:#4cba91}
+    .up{grid-column:2}.left{grid-column:1}.down{grid-column:2}.right{grid-column:3}
+    .overlay{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(10,13,22,.72); backdrop-filter:blur(3px); border-radius:16px}
+    .overlayCard{max-width:540px; width:100%; padding:22px; text-align:center; background:#fff2d9; color:#2e2637; border:4px solid #7d6158; border-radius:18px; box-shadow:0 10px 0 rgba(0,0,0,.2)}
+    .overlayCard h3{margin:0 0 12px; font:14px 'Press Start 2P', monospace; line-height:1.6}
+    .overlayCard p{margin:0 0 18px; font-size:24px; line-height:1.08}
+    .playFrame{position:relative}
+    .toast{position:fixed; left:50%; bottom:18px; transform:translateX(-50%) translateY(130%); background:#fff0d6; color:#312534; border:3px solid #906f66; border-radius:14px; box-shadow:0 8px 0 rgba(0,0,0,.18); padding:12px 16px; font:10px 'Press Start 2P', monospace; line-height:1.6; z-index:100; transition:transform .22s ease; text-align:center; max-width:min(90vw,720px)}
+    .toast.show{transform:translateX(-50%) translateY(0)}
+
+    @media (max-width: 980px){
+      .shopPanel{position:absolute; top:auto; right:12px; left:12px; bottom:145px; width:auto; max-height:200px}
+      .titleBox h1{font-size:13px}
+      .dialogText{font-size:22px}
+      .gameWrap{grid-template-columns:1fr}
+      .hud{grid-template-columns:repeat(2,1fr)}
+      .uiTop{padding:12px}
+      .titleBox{max-width:none}
+      .dialog{left:12px; right:12px; bottom:12px; width:auto}
+      .playCorner{right:12px; bottom:12px}
+    }
+    @media (max-width: 560px){
+      .titleBox p{font-size:15px}
+      .wallet{min-width:120px; padding:12px}
+      .wallet .value{font-size:28px}
+      .pixelBtn,.playCorner .mini{min-width:160px; font-size:10px; padding:12px}
+      .shopPanel{bottom:130px}
+      .dialogText{font-size:18px}
+      .itemDesc,.row,.sidePanel p{font-size:16px}
+    }
+  
+.shopTabs{display:flex;gap:8px;margin-bottom:12px}.shopTabs button{flex:1;background:#342744;color:#fff1d6;border:2px solid #6a5888;border-radius:8px;padding:8px;font:9px 'Press Start 2P',monospace;cursor:pointer}.shopTabs button.active{background:#ffdb70;color:#302016;border-color:#c99a45}.cartBadge{color:#ffd56b;font-size:20px}.cartIcon{font-family:monospace;font-size:24px;color:#c6f2a1;background:#263b35;border:3px solid #77798b;padding:6px 10px;box-shadow:3px 3px #171522;border-radius:4px}.cartIcon.lock{color:#9a99a0;background:#363443}.cartHead{display:flex;gap:12px;align-items:center}.library{overflow:auto;background:radial-gradient(ellipse at top,#48385b,#171824 65%);padding:24px;min-height:100%}.handheld{max-width:960px;margin:auto;background:#d9d6c7;color:#282936;border:5px solid #858392;border-radius:24px 24px 68px 24px;box-shadow:0 12px #55516a,inset 0 4px #fff7e6;padding:22px}.consoleTop{display:flex;align-items:center;justify-content:space-between;gap:15px;font-size:23px;margin-bottom:15px}.consoleTop b{font:12px 'Press Start 2P',monospace}.lcd{background:#303f31;border:10px solid #545361;border-radius:12px 12px 36px 12px;padding:18px;color:#d8f3b2;box-shadow:inset 0 0 0 3px #212d28}.lcd h2{font:14px 'Press Start 2P',monospace;line-height:1.6;margin:0 0 10px}.lcd p{font-size:20px;margin:0 0 18px}.cartridges{display:grid;grid-template-columns:repeat(auto-fit,minmax(195px,1fr));gap:12px}.cart{background:#1d2a25;border:2px solid #78945e;padding:13px;border-radius:7px;display:flex;flex-direction:column;gap:10px}.cart h3{font:10px 'Press Start 2P',monospace;line-height:1.5;margin:0}.cart p{font-size:19px;line-height:1.15;margin:0;flex:1}.cart button{font:9px 'Press Start 2P',monospace;padding:12px 8px;background:#c5ef9e;color:#233820;border:0;box-shadow:0 4px #7a9b5f;border-radius:5px;cursor:pointer}.cart button.locked{background:#f8d481;color:#4c361b;box-shadow:0 4px #a07e40}.consoleBottom{display:flex;align-items:center;justify-content:space-between;margin-top:24px;gap:12px;flex-wrap:wrap}.consoleDecor{font-size:35px;color:#555164;letter-spacing:8px}.gameWrap{max-width:1250px;margin:auto}.playFrame canvas{touch-action:none}.gameHeading{font:13px 'Press Start 2P',monospace;margin:5px 0 16px;line-height:1.5}.sidePanel .list[hidden],.sidePanel .pad[hidden]{display:none}.gameWrap .controls .pixelBtn{min-width:140px!important;font-size:10px}.gameWrap .hud .v{color:#e4efca}.shopPanel{max-height:calc(100vh - 270px)}@media(max-width:980px){.shopPanel{max-height:200px}}@media(max-width:560px){.library{padding:10px}.handheld{padding:12px}.lcd{padding:10px}.cartridges{grid-template-columns:1fr 1fr}.cart{padding:8px}.cart h3{font-size:8px}.cart p{font-size:16px}.dialog{bottom:110px}.shopPanel{bottom:245px;max-height:180px}.playCorner{flex-direction:row;flex-wrap:wrap;justify-content:flex-end}.playCorner .pixelBtn{min-width:120px;font-size:8px}.titleBox p{display:none}}
+</style>
+</head>
+<body>
+  <section id="storeScreen" class="screen active">
+    <canvas id="storeCanvas" width="1600" height="900" aria-label="Cena da loja do gato preto"></canvas>
+
+    <div class="uiTop">
+      <div class="titleBox">
+        <h1>GATOPRETOSTORE ARCADE</h1>
+        <p>Loja/menu em tela inteira com o gatinho preto, uma barraca pixel art e um <b>Game Boy grátis</b> para começar a jogar.</p>
+      </div>
+      <div class="wallet">
+        <div class="label">SUAS MOEDAS</div>
+        <div class="value"><small>🪙</small> <span id="coinCount">0</span></div>
+      </div>
+    </div>
+
+    <div id="shopPanel" class="shopPanel">
+      <h2>LOJA DO GATINHO</h2>
+<div class="shopTabs"><button id="tabGames" class="active">JOGOS</button><button id="tabUpgrades">UPGRADES</button></div>
+      <div id="shopItems" class="shopItems"></div>
+    </div>
+
+    <div id="hintBubble" class="hintBubble">Clique no Game Boy para abrir sua coleção de jogos!</div>
+
+    <div class="dialog">
+      <div class="tag">GATINHO PRETINHO</div>
+      <div class="dialogText" id="catDialog">Miau! Pegue esse <b>Game Boy</b>. Hoje ele sai por <span class="price">R$ 0,00</span>! A cada ração na cobrinha, você ganha 1 moeda.</div>
+    </div>
+
+    <div class="playCorner">
+      <button id="playBtn" class="pixelBtn">JOGAR AGORA</button>
+      <button id="freeBtn" class="pixelBtn secondary mini">PEGAR GAME BOY • R$0</button>
+      <button id="meowBtn" class="pixelBtn dark mini">FAZER CARINHO</button>
+    </div>
+  </section>
+
+  <section id="libraryScreen" class="screen library">
+    <div class="handheld"><div class="consoleTop"><b>GATOPRETO • POCKET</b><span>● POWER &nbsp; 🪙 <span id="libraryCoins">0</span></span></div>
+      <div class="lcd"><h2>MEUS CARTUCHOS</h2><p>Escolha um jogo! Cartuchos comprados ficam seus para sempre.</p><div id="cartridges" class="cartridges"></div></div>
+      <div class="consoleBottom"><span class="consoleDecor">✚ &nbsp; ◉ ◉</span><button id="libraryBack" class="pixelBtn secondary">VOLTAR À LOJA</button></div></div>
+  </section>
+  <section id="gameScreen" class="screen">
+    <div class="gameWrap">
+      <div class="panel playPanel"><h2 class="gameHeading" id="gameHeading">COBRINHA</h2>
+        <div class="hud">
+          <div class="box"><div class="k">PONTOS</div><div class="v" id="score">0</div></div>
+          <div class="box"><div class="k">MOEDAS</div><div class="v" id="coinsHud">0</div></div>
+          <div class="box"><div class="k">RECORDE</div><div class="v" id="best">0</div></div>
+          <div class="box"><div class="k" id="extraLabel">TEMPO</div><div class="v" id="speedLevel">1</div></div>
+        </div>
+        <div class="playFrame">
+          <canvas id="gameCanvas" width="480" height="360" aria-label="Jogo da cobrinha"></canvas>
+          <div id="overlay" class="overlay">
+            <div class="overlayCard">
+              <h3>COBRINHA NO GAME BOY</h3>
+              <p>Cada ração vale <b>+1 moeda</b>. Use as setas, WASD ou os botões na tela. Bateu na parede ou em si mesmo? A partida acaba.</p>
+              <button id="startGameBtn" class="pixelBtn" style="min-width:220px">COMEÇAR</button>
+            </div>
+          </div>
+        </div>
+        <div class="controls">
+          <button id="backStore" class="pixelBtn secondary" style="min-width:180px">GAME BOY</button>
+          <button id="restartBtn" class="pixelBtn dark" style="min-width:180px">RECOMEÇAR</button>
+        </div>
+      </div>
+
+      <div class="panel sidePanel">
+        <h2>GATOPRETOSTORE</h2>
+        <p id="gameHelp"></p>
+        <div class="list">
+          <div class="row"><span>Ração imantada</span><b id="lvlMagnet">0</b></div>
+          <div class="row"><span>Passo calmo</span><b id="lvlSlow">0</b></div>
+          <div class="row"><span>Coleira protetora</span><b id="lvlShield">0</b></div>
+          <div class="row"><span>Pele neon</span><b id="lvlSkin">0</b></div>
+          <div class="row"><span>Portal das bordas</span><b id="lvlWrap">0</b></div>
+        </div>
+        <div class="pad">
+          <button class="up" data-dir="up">▲</button>
+          <button class="left" data-dir="left">◀</button>
+          <button class="down" data-dir="down">▼</button>
+          <button class="right" data-dir="right">▶</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const $ = (id)=>document.getElementById(id);
+    const storeCanvas = $('storeCanvas');
+    const sctx = storeCanvas.getContext('2d');
+    const gameCanvas = $('gameCanvas');
+    const gctx = gameCanvas.getContext('2d');
+
+    const saveKey = 'gatopreto_store_v2';
+    const baseState = {
+      coins:0,
+      best:0,
+      upgrades:{magnet:0,slow:0,shield:0,skin:0,wrap:0},
+      hasGameboy:false, games:{snake:true}, records:{}
+    };
+    let save = load();
+
+    const upgrades = [
+      {id:'magnet', name:'Ração imantada', prices:[6,10,15], desc:['Puxa a ração a 1 bloco de distância.','Puxa melhor a ração e facilita a coleta.','O ímã fica mais forte.']},
+      {id:'slow', name:'Passo calmo', prices:[8,13,19], desc:['A cobrinha começa um pouco mais calma.','Velocidade mais confortável.','Controle mais estável no começo.']},
+      {id:'shield', name:'Coleira protetora', prices:[10,16], desc:['Salva de uma batida por partida.','Dá uma carga extra de proteção.']},
+      {id:'skin', name:'Pele neon', prices:[7], desc:['Troca a cor da cobrinha para um visual neon bonito.']},
+      {id:'wrap', name:'Portal das bordas', prices:[25], desc:['Ao sair de um lado, entra pelo outro.']}
+    ];
+
+    const games = [
+      {id:'snake',name:'Cobrinha',icon:'S',price:0,desc:'Cada ração = +1 moeda. Não bata nas paredes!',help:'Setas, WASD ou deslize. Coma rações e evite colisões.'},
+      {id:'reflex',name:'Reflexo Felino',icon:'!',price:5,desc:'Toque no gatinho quando ele aparecer. 30 segundos.',help:'Clique ou toque no gatinho antes que suma. Cada acerto vale 1 moeda.'},
+      {id:'catch',name:'Chuva de Moedas',icon:'$',price:10,desc:'Pegue moedas que caem do céu com a cesta.',help:'Mova a cesta com as setas A/D ou arrastando. Cada moeda pega vale 1.'},
+      {id:'dodge',name:'Fuga dos Peixes',icon:'>',price:15,desc:'Desvie dos peixes e pegue as estrelas.',help:'Mova o gatinho para os lados. Pegue estrelas douradas (+1 moeda) e desvie dos peixes. Você tem 3 vidas.'},
+      {id:'memory',name:'Memória Miau',icon:'?',price:20,desc:'Encontre os pares de cartas. Cada par vale 1 moeda.',help:'Clique em duas cartas para virar. Ache todos os 8 pares antes de 60 segundos.'},
+      {id:'brick',name:'Quebra-Tijolos',icon:'#',price:30,desc:'Rebata a bolinha e quebre os blocos.',help:'Use A/D, setas ou arraste a plataforma. Cada tijolo destruído vale 1 moeda. Você tem 3 vidas.'}
+    ];
+    let shopTab='games';
+    function load(){
+      try{return {...baseState, ...JSON.parse(localStorage.getItem(saveKey)||'{}'), upgrades:{...baseState.upgrades, ...(JSON.parse(localStorage.getItem(saveKey)||'{}').upgrades||{})}}}
+      catch(e){return JSON.parse(JSON.stringify(baseState));}
+    }
+    function persist(){ try{localStorage.setItem(saveKey, JSON.stringify(save));}catch(e){} updateUI(); }
+
+    function updateUI(){
+      $('coinCount').textContent = save.coins;
+      $('coinsHud').textContent = save.coins;
+      $('best').textContent = mode==='snake'?save.best:(save.records?.[mode]||0);
+      $('lvlMagnet').textContent = save.upgrades.magnet;
+      $('lvlSlow').textContent = save.upgrades.slow;
+      $('lvlShield').textContent = save.upgrades.shield;
+      $('lvlSkin').textContent = save.upgrades.skin;
+      $('lvlWrap').textContent = save.upgrades.wrap;
+      if($('storeScreen').classList.contains('active')) renderShop();
+      if($('libraryScreen').classList.contains('active')) renderLibrary();
+    }
+
+    function toast(msg){
+      const el = $('toast'); el.textContent = msg; el.classList.add('show');
+      clearTimeout(toast.t); toast.t = setTimeout(()=>el.classList.remove('show'), 2200);
+    }
+
+    function switchScreen(name){
+      $('storeScreen').classList.toggle('active', name==='store');
+      $('gameScreen').classList.toggle('active', name==='game');
+      $('libraryScreen').classList.toggle('active',name==='library');
+      if(name==='library') renderLibrary();
+      if(name==='store') renderShop();
+      if(name==='game'){ $('coinsHud').textContent = save.coins; }
+    }
+
+    function renderShop(){
+      const box = $('shopItems');
+      box.innerHTML = '';
+      $('tabGames').classList.toggle('active',shopTab==='games'); $('tabUpgrades').classList.toggle('active',shopTab==='upgrades');
+      if(shopTab==='games'){
+        games.forEach(g=>{const owned=owns(g.id),card=document.createElement('div');card.className='item';card.innerHTML=`<div class="cartHead"><span class="cartIcon ${owned?'':'lock'}">${g.icon}</span><div class="itemTitle">${g.name}</div></div><div class="itemDesc">${g.desc}</div><div class="itemMeta"><span class="pill">${owned?'SEU CARTUCHO':'🪙 '+g.price}</span><button class="buyBtn">${owned?'JOGAR':'COMPRAR'}</button></div>`;card.querySelector('button').onclick=()=>owned?(acquireGameboy(),openGame(g.id)):buyGame(g.id);box.appendChild(card);});return;
+      }
+      upgrades.forEach(up=>{
+        const lvl = save.upgrades[up.id]||0;
+        const price = up.prices[lvl];
+        const soldOut = price===undefined;
+        const card = document.createElement('div'); card.className='item';
+        card.innerHTML = `
+          <div class="itemRow">
+            <div>
+              <div class="itemTitle">${up.name}</div>
+              <div class="itemDesc">${up.desc[Math.min(lvl, up.desc.length-1)]}</div>
+            </div>
+            <div class="pill">LV ${lvl}</div>
+          </div>
+          <div class="itemMeta">
+            <div class="pill">${soldOut ? 'MAX' : '🪙 ' + price}</div>
+            <button class="buyBtn" ${soldOut?'disabled':''}>${soldOut?'COMPLETO':'COMPRAR'}</button>
+          </div>`;
+        const btn = card.querySelector('.buyBtn');
+        btn.addEventListener('click', ()=>buyUpgrade(up.id));
+        box.appendChild(card);
+      });
+    }
+
+    function owns(id){return id==='snake'||!!save.games?.[id]}
+    function buyGame(id){const g=games.find(g=>g.id===id);if(!g||owns(id))return;if(save.coins<g.price){sayCat('Miau! Faltam '+(g.price-save.coins)+' moedas para '+g.name+'.');toast('Moedas insuficientes');return;}save.coins-=g.price;save.games={...save.games,[id]:true};persist();sayCat('Miau! '+g.name+' agora é seu. Abra o Game Boy!');toast('Cartucho adquirido: '+g.name);}
+    function renderLibrary(){ $('libraryCoins').textContent=save.coins;const el=$('cartridges');el.innerHTML='';games.forEach(g=>{const owned=owns(g.id),card=document.createElement('div');card.className='cart';card.innerHTML=`<div class="cartHead"><span class="cartIcon ${owned?'':'lock'}">${g.icon}</span><h3>${g.name}</h3></div><p>${g.desc}</p><button class="${owned?'':'locked'}">${owned?'▶ JOGAR':'LOJA • '+g.price+' MOEDAS'}</button>`;card.querySelector('button').onclick=()=>{if(owned)openGame(g.id);else{shopTab='games';switchScreen('store');sayCat('Esse cartucho custa '+g.price+' moedas, miau!');}};el.appendChild(card);});}
+    $('tabGames').onclick=()=>{shopTab='games';renderShop()};$('tabUpgrades').onclick=()=>{shopTab='upgrades';renderShop()};$('libraryBack').onclick=()=>switchScreen('store');
+    function buyUpgrade(id){
+      const up = upgrades.find(u=>u.id===id);
+      const lvl = save.upgrades[id]||0;
+      const price = up.prices[lvl];
+      if(price===undefined){ sayCat('Esse upgrade já está no máximo, miau!'); return; }
+      if(save.coins < price){ sayCat('Você precisa de mais ' + (price-save.coins) + ' moedinha(s), humano!'); toast('Moedas insuficientes'); return; }
+      save.coins -= price;
+      save.upgrades[id] = lvl + 1;
+      sayCat('Fechado! ' + up.name + ' melhorado com sucesso.');
+      toast('Comprado: ' + up.name);
+      persist();
+    }
+
+    function sayCat(text){ $('catDialog').innerHTML = text; }
+
+    /* pixel drawing helpers */
+    function px(ctx,x,y,w,h,c){ ctx.fillStyle=c; ctx.fillRect(Math.round(x),Math.round(y),Math.round(w),Math.round(h)); }
+    function circle(ctx,x,y,r,c){ ctx.fillStyle=c; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); }
+    function strokeRect(ctx,x,y,w,h,c,l=2){ ctx.strokeStyle=c; ctx.lineWidth=l; ctx.strokeRect(x,y,w,h); }
+
+    /* Store scene */
+    let sceneTime = 0;
+    const hitZones = { gameboy:{x:0,y:0,w:0,h:0}, cat:{x:0,y:0,w:0,h:0} };
+
+    function resizeStore(){
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      storeCanvas.width = Math.floor(innerWidth * dpr);
+      storeCanvas.height = Math.floor(innerHeight * dpr);
+      sctx.setTransform(dpr,0,0,dpr,0,0);
+    }
+
+    function drawStoreScene(t){
+      sceneTime = t;
+      const w = innerWidth, h = innerHeight;
+      sctx.clearRect(0,0,w,h);
+
+      // sky
+      const grad = sctx.createLinearGradient(0,0,0,h);
+      grad.addColorStop(0,'#34204b'); grad.addColorStop(0.4,'#201b35'); grad.addColorStop(1,'#101421');
+      sctx.fillStyle = grad; sctx.fillRect(0,0,w,h);
+
+      // moon and stars
+      circle(sctx,w*0.17,h*0.16,Math.min(w,h)*0.06,'#ffefc0');
+      circle(sctx,w*0.20,h*0.15,Math.min(w,h)*0.05,'rgba(255,239,192,0.14)');
+      for(let i=0;i<90;i++){
+        const sx=(i*137)%w, sy=((i*67)%Math.max(1,Math.floor(h*0.45))); px(sctx,sx,sy,(i%5?2:3),(i%5?2:3), i%7?'rgba(255,255,255,.55)':'#ffeab1');
+      }
+
+      // mountains and city silhouette
+      px(sctx,0,h*0.55,w,h*0.45,'#111423');
+      for(let i=0;i<8;i++){
+        const mx=(i/7)*w-80, mw=180+(i%3)*90, mh=110+(i%4)*40;
+        sctx.fillStyle = i%2 ? '#171b2f' : '#1b1d35';
+        sctx.beginPath(); sctx.moveTo(mx,h*0.63); sctx.lineTo(mx+mw*0.45,h*0.63-mh); sctx.lineTo(mx+mw,h*0.63); sctx.closePath(); sctx.fill();
+      }
+
+      // ground boardwalk
+      px(sctx,0,h*0.77,w,h*0.23,'#3b271d');
+      for(let i=0;i<24;i++){
+        px(sctx, i*(w/24), h*0.77, Math.ceil(w/24)-2, h*0.23, i%2 ? '#5e3d29':'#6f482e');
+        px(sctx, i*(w/24), h*0.80, Math.ceil(w/24)-2, 4, 'rgba(255,220,170,.16)');
+      }
+
+      // store stall
+      const stallW = Math.min(w*0.78, 1060), stallH = Math.min(h*0.46, 420), stallX = (w-stallW)/2, stallY = h*0.28;
+      px(sctx, stallX+50, stallY+20, stallW-100, stallH-10, '#23373d');
+      px(sctx, stallX+45, stallY+15, stallW-90, stallH-20, '#2f595b');
+      for(let i=0;i<11;i++){
+        const sx = stallX+70+i*((stallW-140)/10);
+        px(sctx,sx,stallY+20,10,stallH-30,'#244043');
+      }
+      // awning
+      const awningH = stallH*0.22;
+      for(let i=0;i<12;i++){
+        const segW=(stallW)/12;
+        px(sctx, stallX+i*segW, stallY-awningH, segW+1, awningH, i%2?'#1f8a84':'#58d4c8');
+      }
+      px(sctx, stallX-8, stallY-awningH-12, stallW+16, 16, '#c78b5f');
+      px(sctx, stallX-16, stallY-awningH-20, 20, stallH+awingFix(awningH)+130, '#5f3e26');
+      px(sctx, stallX+stallW-4, stallY-awningH-20, 20, stallH+awingFix(awningH)+130, '#5f3e26');
+      function awingFix(v){return v}
+      // hanging lights
+      for(let i=0;i<10;i++){
+        const lx=stallX+75+i*((stallW-150)/9), ly=stallY-awningH-12 + ((i%2)*8);
+        px(sctx,lx,ly,3,15,'#2b1d1d');
+        circle(sctx,lx+1.5,ly+17,6, ['#ffe46b','#ffa1b9','#9af9d4','#ffd190'][i%4]);
+      }
+
+      // table
+      const tableX = stallX + stallW*0.1, tableY = stallY + stallH*0.48, tableW = stallW*0.78, tableH = stallH*0.20;
+      px(sctx,tableX,tableY,tableW,tableH,'#b97c4c');
+      px(sctx,tableX,tableY+8,tableW,10,'#dfaa74');
+      px(sctx,tableX+18,tableY+tableH,18,82,'#7e5230');
+      px(sctx,tableX+tableW-36,tableY+tableH,18,82,'#7e5230');
+      px(sctx,tableX+48,tableY+tableH-5,tableW-96,16,'#84552c');
+
+      // lemons and jars for market vibe
+      for(let i=0;i<6;i++) circle(sctx, tableX+80+i*42, tableY+24+(i%2?6:0), 13, i%2?'#fff0a1':'#f7d22f');
+      px(sctx,tableX+tableW-200,tableY-34,44,48,'#f3f2f6'); strokeRect(sctx,tableX+tableW-200,tableY-34,44,48,'#1b1f26',3);
+      px(sctx,tableX+tableW-188,tableY-18,18,24,'rgba(248,218,85,.92)');
+      px(sctx,tableX+tableW-142,tableY-38,18,52,'#f3f2f6'); strokeRect(sctx,tableX+tableW-142,tableY-38,18,52,'#1b1f26',3);
+
+      // Gameboy
+      const gbH=Math.min(132,h*0.17,w*0.23);
+      const gb = {x:tableX+tableW*0.60, y:tableY-gbH+12, w:gbH*0.68, h:gbH};
+      px(sctx,gb.x,gb.y,gb.w,gb.h,'#ddd9c8');
+      strokeRect(sctx,gb.x,gb.y,gb.w,gb.h,'#2b2b2b',4);
+      px(sctx,gb.x+16,gb.y+16,gb.w-32,gb.h*0.35,'#95b978');
+      px(sctx,gb.x+22,gb.y+24,gb.w-44,gb.h*0.26,'#4f6b49');
+      px(sctx,gb.x+26+(Math.sin(t*3)*3),gb.y+32,18,18,'#91f18d');
+      circle(sctx, gb.x+gb.w*0.72, gb.y+gb.h*0.68, 11, '#8d558e');
+      circle(sctx, gb.x+gb.w*0.84, gb.y+gb.h*0.75, 11, '#8d558e');
+      px(sctx, gb.x+20, gb.y+gb.h*0.66, 14, 36, '#60677e');
+      px(sctx, gb.x+9, gb.y+gb.h*0.77, 36, 14, '#60677e');
+      px(sctx, gb.x+16, gb.y+gb.h*0.72, 22, 22, '#60677e');
+      px(sctx, gb.x+gb.w*0.58, gb.y+gb.h*0.14, 24, 7, '#e66e74');
+      sctx.fillStyle = '#302a2f'; sctx.font = 'bold 10px "Press Start 2P"'; sctx.fillText('R$0', gb.x+8, gb.y+gb.h+18);
+      hitZones.gameboy = {x:gb.x, y:gb.y, w:gb.w, h:gb.h};
+
+      // black cat - detailed-ish pixel art on table
+      const catScale = Math.max(1,Math.floor(Math.min(h*0.36/96,w*0.30/76)));
+      const cx = tableX + tableW*0.38;
+      const cy = tableY + 4;
+      drawCat(sctx, cx, cy, catScale, t);
+      hitZones.cat = {x:cx-38*catScale, y:cy-90*catScale, w:76*catScale, h:96*catScale};
+
+      // signs
+      px(sctx, stallX+20, stallY+30, 220, 54, '#fff2cc'); strokeRect(sctx,stallX+20,stallY+30,220,54,'#5b493e',3);
+      sctx.fillStyle='#2f2330'; sctx.font='12px "Press Start 2P"'; sctx.fillText('GATOPRETO', stallX+38, stallY+58);
+      sctx.fillText('STORE', stallX+88, stallY+78);
+      px(sctx, stallX+stallW-190, stallY+24, 150, 48, '#fff2cc'); strokeRect(sctx,stallX+stallW-190,stallY+24,150,48,'#5b493e',3);
+      sctx.fillStyle='#2f2330'; sctx.font='10px "Press Start 2P"'; sctx.fillText('GAME BOY', stallX+stallW-170, stallY+48);
+      sctx.fillText('GRATIS!', stallX+stallW-154, stallY+66);
+    }
+
+    // Hand-drawn low-resolution sprite, enlarged with nearest-neighbor scaling.
+    const catSprite=document.createElement('canvas'); catSprite.width=76; catSprite.height=96;
+    const catCtx=catSprite.getContext('2d');
+    function drawCat(ctx,x,y,s,t){
+      const c=catCtx; c.clearRect(0,0,76,96);
+      const r=(x,y,w,h,k)=>{c.fillStyle=k;c.fillRect(x,y,w,h)};
+      function poly(points,k){ // scanline rasterization: crisp, individual pixels
+        c.fillStyle=k;
+        for(let y=0;y<96;y++){
+          const xs=[]; for(let i=0;i<points.length;i++){
+            const a=points[i],b=points[(i+1)%points.length];
+            if((a[1]<=y+.5&&b[1]>y+.5)||(b[1]<=y+.5&&a[1]>y+.5)) xs.push(a[0]+(y+.5-a[1])*(b[0]-a[0])/(b[1]-a[1]));
+          }
+          xs.sort((a,b)=>a-b);for(let i=0;i+1<xs.length;i+=2){const l=Math.ceil(xs[i]-.5),rr=Math.ceil(xs[i+1]-.5);c.fillRect(l,y,rr-l,1)}
+        }
+      }
+      const outline='#101018', fur='#272735', shade='#1c1c28', light='#424153', warm='#626071';
+      // slim curved tail, swaying behind the shopkeeper
+      const sway=Math.round(Math.sin(t*2)*3);
+      poly([[48,86],[58,85],[63,78],[64,64],[60+sway,57],[56+sway,58],[55+sway,64],[58,69],[56,78],[48,80]],outline);
+      poly([[50,83],[58,81],[61,75],[61,65],[58+sway,61],[57+sway,64],[59,69],[57,78],[51,81]],light);
+      // narrow shoulders and torso (hidden below the counter)
+      poly([[29,51],[44,51],[51,58],[54,75],[49,91],[26,91],[22,75],[24,59]],outline);
+      poly([[30,54],[43,54],[48,60],[50,76],[46,89],[28,89],[25,75],[27,61]],fur);
+      poly([[30,55],[34,55],[30,65],[29,81],[26,76],[27,61]],light);
+      // yellow shop apron, ties, embroidered pocket
+      r(30,57,3,11,'#efbe48');r(43,57,3,11,'#efbe48');
+      poly([[31,64],[45,64],[47,75],[49,90],[27,90],[29,75]],'#a56928');
+      poly([[32,65],[44,65],[45,76],[47,88],[29,88],[31,76]],'#e5b645');
+      r(32,66,11,2,'#ffdc79');r(31,83,15,2,'#bc8534');r(36,77,8,8,'#bf8c33');r(37,78,6,5,'#f9cb58');
+      // long slim arms and little black paws
+      poly([[24,59],[20,63],[18,77],[13,83],[13,90],[24,92],[29,86],[27,80],[29,65]],outline);
+      poly([[24,63],[22,67],[21,78],[16,85],[16,89],[23,89],[26,85],[24,80],[27,64]],fur);
+      r(17,85,6,2,light);r(19,89,2,1,warm);
+      poly([[50,59],[55,64],[56,77],[63,82],[64,88],[59,92],[48,91],[46,84],[49,78],[47,65]],outline);
+      poly([[50,63],[52,65],[53,79],[60,84],[61,88],[56,89],[50,88],[49,84],[52,79]],fur);
+      r(54,84,6,2,light);r(57,88,2,1,warm);
+      // rounded face with sharply stepped triangular ears
+      const bob=Math.round(Math.sin(t*2.6));c.save();c.translate(0,bob);
+      poly([[15,7],[19,4],[32,17],[42,17],[56,4],[60,7],[62,29],[65,36],[64,44],[59,51],[52,55],[44,58],[30,58],[21,55],[14,50],[10,44],[10,35],[14,28]],outline);
+      poly([[18,9],[20,9],[31,20],[44,20],[55,9],[57,9],[59,30],[62,36],[61,44],[57,49],[50,53],[43,55],[31,55],[23,53],[17,48],[13,43],[13,36],[17,29]],fur);
+      poly([[19,13],[27,23],[20,26]],'#b67b86');poly([[55,13],[48,23],[56,26]],'#a76678');
+      poly([[19,30],[24,24],[32,22],[43,22],[48,24],[33,25],[25,28],[20,35],[17,40],[15,36]],light);
+      r(23,28,8,2,warm);r(19,31,4,2,light);r(54,32,3,5,shade);
+      poly([[57,40],[60,42],[55,49],[47,53],[39,55],[47,50],[54,46]],shade);
+      const blink=t%4.8>4.55;
+      if(blink){r(22,39,10,2,'#f3c658');r(43,39,10,2,'#f3c658');}
+      else{
+        for(const ex of [21,42]){
+          poly([[ex+2,32],[ex+9,32],[ex+12,35],[ex+12,43],[ex+9,46],[ex+2,46],[ex,43],[ex,35]],outline);
+          r(ex+2,34,8,10,'#eeb744');r(ex+3,34,6,3,'#ffe69a');r(ex+5,35,4,9,'#17161e');r(ex+3,35,2,3,'#fff8da');r(ex+9,42,1,2,'#fff1ac');
+        }
+      }
+      r(18,46,6,2,'#72505e');r(52,46,6,2,'#72505e');
+      r(35,44,5,2,'#d78b99');r(36,46,3,1,'#a95f72');r(37,47,1,2,outline);r(34,49,3,1,outline);r(38,49,3,1,outline);r(35,50,5,1,'#555060');
+      r(11,46,7,1,'#8d8697');r(13,49,5,1,'#6c6579');r(57,46,7,1,'#8d8697');r(57,49,5,1,'#6c6579');
+      c.restore();
+      // a tiny gold bell on the apron
+      r(32,57,12,2,'#9f6e39');r(36,58,5,5,'#eac14f');r(37,58,2,1,'#fff0a0');r(38,61,1,2,'#956021');
+      ctx.imageSmoothingEnabled=false;
+      ctx.drawImage(catSprite,Math.round(x-38*s),Math.round(y-90*s),76*s,96*s);
+    }
+
+    function pointIn(r,x,y){ return x>=r.x && x<=r.x+r.w && y>=r.y && y<=r.y+r.h; }
+    storeCanvas.addEventListener('click',(e)=>{
+      const rect = storeCanvas.getBoundingClientRect();
+      const x=e.clientX-rect.left, y=e.clientY-rect.top;
+      if(pointIn(hitZones.gameboy,x,y)){ acquireGameboy(); openLibrary(); }
+      else if(pointIn(hitZones.cat,x,y)){ petCat(); }
+    });
+
+    function petCat(){
+      const msgs = [
+        'Prrrr... gostei do carinho. Quer levar o Game Boy?',
+        'Miau! A cobrinha está te esperando ali no Game Boy.',
+        'Hehe... não esquece: cada ração dá +1 moeda.'
+      ];
+      sayCat(msgs[Math.floor(Math.random()*msgs.length)]);
+      $('hintBubble').classList.add('show');
+      clearTimeout(petCat.t); petCat.t = setTimeout(()=>$('hintBubble').classList.remove('show'),1600);
+      toast('O gatinho gostou do carinho 🐈‍⬛');
+    }
+
+    function acquireGameboy(){
+      if(save.hasGameboy)return;
+      save.hasGameboy = true;
+      persist();
+      sayCat('Pronto! O Game Boy é seu por <span class="price">R$ 0,00</span>. Agora clica em jogar, miau!');
+      toast('Game Boy recebido por R$0');
+    }
+
+    $('playBtn').addEventListener('click', ()=>{ acquireGameboy(); openLibrary(); });
+    $('freeBtn').addEventListener('click', ()=>{ acquireGameboy(); openLibrary(); });
+    $('meowBtn').addEventListener('click', petCat);
+
+    /* Game Boy arcade */
+    let mode='snake', playing=false, ended=false, score=0, elapsed=0, lastTick=0, accum=0, S={}, keys={}, swipe=null;
+    const W=480,H=360,cols=24,rows=18,cell=20;
+    const rand=(a,b)=>a+Math.random()*(b-a), clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+    function openLibrary(){playing=false;switchScreen('library')}
+    function openGame(id='snake'){if(!owns(id))return;mode=id;switchScreen('game');resetGame();updateUI()}
+    function resetGame(){
+      playing=false;ended=false;score=0;elapsed=0;accum=0;keys={};
+      S={body:[{x:10,y:9},{x:9,y:9},{x:8,y:9}],dir:{x:1,y:0},next:null,shield:save.upgrades.shield,food:null,x:240,drops:[],spawn:0,lives:3,target:-1,targetTime:0,flipped:[],matched:[],wait:0,ball:{x:240,y:290,vx:130,vy:-180},bricks:Array.from({length:35},(_,i)=>i)};
+      S.cards=Array.from({length:16},(_,i)=>i%8);for(let i=15;i>0;i--){const j=Math.floor(Math.random()*(i+1));[S.cards[i],S.cards[j]]=[S.cards[j],S.cards[i]];}
+      placeFood();newTarget();
+      const g=games.find(g=>g.id===mode);$('gameHeading').textContent=g.name.toUpperCase();$('gameHelp').textContent=g.help;document.querySelector('.sidePanel .list').hidden=mode!=='snake';document.querySelector('.sidePanel .pad').hidden=['reflex','memory'].includes(mode);$('overlay').style.display='flex';$('overlay').querySelector('h3').textContent=g.name.toUpperCase();$('overlay').querySelector('p').textContent=g.help;$('startGameBtn').textContent='COMEÇAR';hud();drawGame();
+    }
+    function hud(){$('score').textContent=score;$('coinsHud').textContent=save.coins;$('best').textContent=mode==='snake'?save.best:save.records?.[mode]||0;$('extraLabel').textContent=mode==='snake'?'ESCUDOS':['dodge','brick'].includes(mode)?'VIDAS':'TEMPO';$('speedLevel').textContent=mode==='snake'?S.shield:['dodge','brick'].includes(mode)?S.lives:Math.ceil(Math.max(0,(mode==='memory'?60:30)-elapsed))+'s'}
+    function reward(){score++;save.coins++;if(mode==='snake')save.best=Math.max(save.best,score);else{save.records??={};save.records[mode]=Math.max(save.records[mode]||0,score)}persist();hud()}
+    function finish(win=false){playing=false;ended=true;keys={};$('overlay').style.display='flex';$('overlay').querySelector('h3').textContent=win?'PARABÉNS!':'FIM DE JOGO';$('overlay').querySelector('p').textContent=`Você fez ${score} pontos e ganhou ${score} moedas! Seu saldo foi salvo.`;$('startGameBtn').textContent='JOGAR DE NOVO';hud()}
+    $('backStore').onclick=openLibrary;$('restartBtn').onclick=resetGame;$('startGameBtn').onclick=()=>{if(ended)resetGame();playing=true;lastTick=performance.now();$('overlay').style.display='none'};
+    function placeFood(){let free=[];for(let y=0;y<rows;y++)for(let x=0;x<cols;x++)if(!S.body.some(p=>p.x===x&&p.y===y))free.push({x,y});S.food=free.length?free[Math.floor(Math.random()*free.length)]:null}
+    function direction(dx,dy){if(!playing)return;if(mode==='snake'){if(S.next||dx===-S.dir.x&&dy===-S.dir.y)return;S.next={x:dx,y:dy}}else if(['catch','dodge','brick'].includes(mode))S.x=clamp(S.x+dx*30,28,W-28)}
+    function snakeStep(){if(S.next){S.dir=S.next;S.next=null}const h={x:S.body[0].x+S.dir.x,y:S.body[0].y+S.dir.y};if(save.upgrades.wrap){h.x=(h.x+cols)%cols;h.y=(h.y+rows)%rows}let eat=S.food&&Math.abs(h.x-S.food.x)+Math.abs(h.y-S.food.y)<=save.upgrades.magnet;let collision=h.x<0||h.x>=cols||h.y<0||h.y>=rows||S.body.slice(0,eat?S.body.length:-1).some(p=>p.x===h.x&&p.y===h.y);if(collision){if(S.shield>0){S.shield--;S.body=[{x:10,y:9},{x:9,y:9},{x:8,y:9}];S.dir={x:1,y:0};S.next=null;placeFood();hud();toast('A coleira te protegeu!');return}finish();return}S.body.unshift(h);if(eat){reward();placeFood();if(!S.food)finish(true)}else S.body.pop()}
+    function newTarget(){let old=S.target;do{S.target=Math.floor(Math.random()*12)}while(S.target===old);S.targetTime=Math.max(.55,1.4-score*.025)}
+    function update(dt){if(!playing)return;elapsed+=dt;if(mode==='snake'){accum+=dt;const delay=Math.max(.085,([.15,.17,.195,.215][save.upgrades.slow]||.15)-score*.001);while(accum>=delay&&playing){accum-=delay;snakeStep()}return}
+      if(mode==='reflex'){S.targetTime-=dt;if(S.targetTime<=0)newTarget();if(elapsed>=30)finish(true)}
+      if(mode==='catch'||mode==='dodge'){
+        S.x=clamp(S.x+((keys.right?1:0)-(keys.left?1:0))*dt*320,28,W-28);S.spawn-=dt;
+        if(S.spawn<=0){S.spawn=Math.max(.29,.78-elapsed*.012);S.drops.push({x:rand(17,W-17),y:-15,v:rand(90,155)+elapsed*2,good:mode==='catch'||Math.random()<.48})}
+        S.drops=S.drops.filter(d=>{d.y+=d.v*dt;if(d.y>=310&&d.y<=342&&Math.abs(d.x-S.x)<32){if(d.good)reward();else{S.lives--;if(S.lives<=0)finish()}return false}return d.y<H+16});if(elapsed>=30&&playing)finish(true)
+      }
+      if(mode==='memory'){if(S.wait>0){S.wait-=dt;if(S.wait<=0)S.flipped=[]}if(elapsed>=60)finish()}
+      if(mode==='brick'){
+        S.x=clamp(S.x+((keys.right?1:0)-(keys.left?1:0))*dt*330,35,W-35);const b=S.ball;b.x+=b.vx*dt;b.y+=b.vy*dt;if(b.x<8||b.x>W-8){b.x=clamp(b.x,8,W-8);b.vx*=-1}if(b.y<8){b.y=8;b.vy=Math.abs(b.vy)}if(b.vy>0&&b.y>=315&&b.y<=333&&Math.abs(b.x-S.x)<44){b.y=314;b.vy=-Math.abs(b.vy);b.vx=clamp((b.x-S.x)*6,-240,240)||60}
+        const hit=S.bricks.find(i=>{let x=13+i%7*66,y=20+Math.floor(i/7)*27;return b.x+6>x&&b.x-6<x+60&&b.y+6>y&&b.y-6<y+21});if(hit!==undefined){S.bricks=S.bricks.filter(i=>i!==hit);b.vy*=-1;reward();if(!S.bricks.length)finish(true)}if(b.y>H){S.lives--;if(S.lives<=0)finish();else S.ball={x:S.x,y:290,vx:130,vy:-180}}
+      }hud();
+    }
+    function text(t,x,y,color='#d9f2bf',size=18){gctx.font=`bold ${size}px monospace`;gctx.textAlign='center';gctx.fillStyle=color;gctx.fillText(t,x,y)}
+    function token(x,y){px(gctx,x-7,y-9,14,18,'#d39b31');px(gctx,x-9,y-6,18,12,'#ffdf68');px(gctx,x-4,y-5,8,10,'#b98024');px(gctx,x-2,y-5,4,10,'#fff3a0')}
+    function kitty(x,y,s=1){px(gctx,x-18*s,y-10*s,36*s,25*s,'#191824');px(gctx,x-18*s,y-20*s,9*s,14*s,'#191824');px(gctx,x+9*s,y-20*s,9*s,14*s,'#191824');px(gctx,x-15*s,y-15*s,4*s,7*s,'#9a657f');px(gctx,x+11*s,y-15*s,4*s,7*s,'#9a657f');px(gctx,x-11*s,y-3*s,7*s,8*s,'#ffda69');px(gctx,x+4*s,y-3*s,7*s,8*s,'#ffda69');px(gctx,x-8*s,y-2*s,2*s,6*s,'#252031');px(gctx,x+7*s,y-2*s,2*s,6*s,'#252031');px(gctx,x-2*s,y+6*s,4*s,3*s,'#e594ad')}
+    const cardSymbols=['★','♥','●','◆','▲','☾','✚','✿'];
+    function drawGame(){px(gctx,0,0,W,H,'#182920');if(mode==='snake'){
+      for(let y=0;y<rows;y++)for(let x=0;x<cols;x++)px(gctx,x*cell,y*cell,cell,cell,(x+y)%2?'#1d312a':'#233a31');if(S.food){let x=S.food.x*20,y=S.food.y*20;px(gctx,x+3,y+8,14,8,'#a96b47');px(gctx,x+5,y+5,10,4,'#f1c78c');px(gctx,x+7,y+2,6,4,'#f1b96c')}
+      S.body.slice().reverse().forEach((p,i)=>{let x=p.x*20,y=p.y*20;px(gctx,x+1,y+1,18,18,save.upgrades.skin?'#59f5d1':'#8fe787');px(gctx,x+2,y+2,16,4,'#58b95e');if(i===S.body.length-1){px(gctx,x+(S.dir.x===-1?4:12),y+5,3,3,'#14251e');px(gctx,x+(S.dir.x===-1?4:12),y+12,3,3,'#14251e')}});return}
+      for(let y=0;y<H;y+=24)for(let x=0;x<W;x+=24)if((x+y)%48===0)px(gctx,x,y,24,24,'#20332a');
+      if(mode==='reflex'){for(let i=0;i<12;i++){let x=16+i%4*114,y=16+Math.floor(i/4)*112;px(gctx,x,y,106,104,i===S.target?'#b9cd84':'#53684d');px(gctx,x+4,y+4,98,96,i===S.target?'#859c60':'#2a4031');if(i===S.target){kitty(x+53,y+47,1.8);px(gctx,x+6,y+94,94*Math.max(0,S.targetTime/1.4),4,'#f7d878')}}}
+      if(mode==='catch'||mode==='dodge'){S.drops.forEach(d=>{if(d.good)token(d.x,d.y);else{px(gctx,d.x-12,d.y-6,22,12,'#ed8d8b');px(gctx,d.x+9,d.y-10,7,20,'#ad6476');px(gctx,d.x-8,d.y-2,3,3,'#32253a')}});if(mode==='catch'){px(gctx,S.x-31,315,62,7,'#ecc47c');px(gctx,S.x-26,322,52,24,'#986343');px(gctx,S.x-22,330,44,5,'#e0a46b')}else kitty(S.x,327,1.3)}
+      if(mode==='memory'){for(let i=0;i<16;i++){let x=57+i%4*94,y=12+Math.floor(i/4)*85,open=S.flipped.includes(i)||S.matched.includes(i);px(gctx,x,y,84,76,open?'#d3d9a8':'#6d8760');px(gctx,x+4,y+4,76,68,open?'#abbc84':'#3a533b');text(open?cardSymbols[S.cards[i]]:'?',x+42,y+49,open?'#33452c':'#d0e1a5',30)}}
+      if(mode==='brick'){S.bricks.forEach(i=>{let x=13+i%7*66,y=20+Math.floor(i/7)*27;px(gctx,x,y,60,21,['#f1ca75','#da9b83','#b7be88','#8bd3af','#b4a8d8'][Math.floor(i/7)]);px(gctx,x+3,y+3,54,4,'#f5e1c6')});px(gctx,S.x-39,321,78,9,'#c4eea0');px(gctx,S.ball.x-5,S.ball.y-5,10,10,'#fce38d')}
+    }
+    function clickBoard(x,y){if(!playing)return;if(mode==='reflex'){let col=Math.floor((x-16)/114),row=Math.floor((y-16)/112);if(col>=0&&col<4&&row>=0&&row<3&&((x-16)%114)<106&&((y-16)%112)<104&&row*4+col===S.target){reward();newTarget()}}
+      if(mode==='memory'){let col=Math.floor((x-57)/94),row=Math.floor((y-12)/85),i=row*4+col;if(col<0||col>=4||row<0||row>=4||(x-57)%94>=84||(y-12)%85>=76||S.wait>0||S.flipped.includes(i)||S.matched.includes(i))return;S.flipped.push(i);if(S.flipped.length===2){let[a,b]=S.flipped;if(S.cards[a]===S.cards[b]){S.matched.push(a,b);S.flipped=[];reward();if(S.matched.length===16)finish(true)}else S.wait=.7}}
+    }
+    const keyMap={arrowup:[0,-1],w:[0,-1],arrowdown:[0,1],s:[0,1],arrowleft:[-1,0],a:[-1,0],arrowright:[1,0],d:[1,0]};document.addEventListener('keydown',e=>{if(!$('gameScreen').classList.contains('active'))return;let k=e.key.toLowerCase();if(keyMap[k]){e.preventDefault();let [dx,dy]=keyMap[k];if(mode==='snake')direction(dx,dy);else{if(dx<0)keys.left=true;if(dx>0)keys.right=true}}if(k===' '&&!playing){e.preventDefault();$('startGameBtn').click()}});document.addEventListener('keyup',e=>{let d=keyMap[e.key.toLowerCase()];if(d?.[0]<0)keys.left=false;if(d?.[0]>0)keys.right=false});window.addEventListener('blur',()=>{keys={};if(playing){playing=false;ended=false;$('overlay').style.display='flex';$('overlay').querySelector('h3').textContent='PAUSADO';$('overlay').querySelector('p').textContent='Sua partida está pausada.';$('startGameBtn').textContent='CONTINUAR'}});
+    document.querySelectorAll('[data-dir]').forEach(btn=>btn.onclick=()=>direction(...({up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]}[btn.dataset.dir])));
+    function local(e){const r=gameCanvas.getBoundingClientRect();return [(e.clientX-r.left)*W/r.width,(e.clientY-r.top)*H/r.height]}
+    gameCanvas.addEventListener('pointerdown',e=>{if(!playing)return;const [x,y]=local(e);swipe={x:e.clientX,y:e.clientY};gameCanvas.setPointerCapture(e.pointerId);if(['reflex','memory'].includes(mode))clickBoard(x,y);else if(mode!=='snake')S.x=clamp(x,30,W-30)});gameCanvas.addEventListener('pointermove',e=>{if(!swipe||!playing)return;if(mode==='snake'){let dx=e.clientX-swipe.x,dy=e.clientY-swipe.y;if(Math.max(Math.abs(dx),Math.abs(dy))>18){Math.abs(dx)>Math.abs(dy)?direction(Math.sign(dx),0):direction(0,Math.sign(dy));swipe={x:e.clientX,y:e.clientY}}}else if(['catch','dodge','brick'].includes(mode))S.x=clamp(local(e)[0],30,W-30)});gameCanvas.addEventListener('pointerup',()=>swipe=null);gameCanvas.addEventListener('pointercancel',()=>swipe=null);
+    window.addEventListener('resize',resizeStore);resizeStore();resetGame();updateUI();
+    function loop(ts){let dt=Math.min(.05,(ts-lastTick)/1000);lastTick=ts;if($('storeScreen').classList.contains('active'))drawStoreScene(ts/1000);if($('gameScreen').classList.contains('active')){update(dt);drawGame()}requestAnimationFrame(loop)}requestAnimationFrame(loop);
+  </script></body></html>
